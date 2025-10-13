@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sidebarx/sidebarx.dart';
 import 'sideBarController.dart';
-import 'colors.dart'; // make sure this has 'background' defined
+import 'colors.dart';
 
 class ExampleSidebarX extends StatefulWidget {
   const ExampleSidebarX({super.key});
@@ -16,7 +16,6 @@ class _ExampleSidebarXState extends State<ExampleSidebarX> {
 
   @override
   Widget build(BuildContext context) {
-    const coral = Color(0xFFFF7D6B); // coral pink button color
     const mint = Color(0xFF93E4D0); // mint background color
 
     return GetBuilder<SidebarController>(
@@ -32,18 +31,23 @@ class _ExampleSidebarXState extends State<ExampleSidebarX> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white, width: 1),
             ),
+            hoverColor: red,
+            hoverTextStyle: TextStyle(color: Colors.white),
             selectedItemDecoration: BoxDecoration(
-              color: coral,
+              color: red,
+
               borderRadius: BorderRadius.circular(10),
             ),
             textStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w500,
             ),
+
             selectedTextStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
+
             iconTheme: const IconThemeData(
               color: Colors.white,
               size: 20,
