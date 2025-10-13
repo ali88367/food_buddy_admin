@@ -1,6 +1,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:food_buddy_admin/colors.dart';
 import 'package:food_buddy_admin/sideBarController.dart';
 
 import 'package:get/get.dart';
@@ -113,7 +114,7 @@ class _ExampleSidebarXState extends State<ExampleSidebarX> {
             extendedTheme: SidebarXTheme(
               width: 200,
               decoration: BoxDecoration(
-                color: Colors.green,
+                color: background,
               ),
             ),
             footerDivider: Divider(),
@@ -140,7 +141,7 @@ class _ExampleSidebarXState extends State<ExampleSidebarX> {
                     width: 500,
                     child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Image.asset('assets/images/bgName.png')),
+                        child: Image.asset('assets/logo.png')),
                   )
                       : Get.width > 1440 && Get.width <= 2550
                       ? SizedBox(
@@ -148,14 +149,14 @@ class _ExampleSidebarXState extends State<ExampleSidebarX> {
                     width: 500,
                     child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Image.asset('assets/images/bgName.png')),
+                        child: Image.asset('assets/logo.png')),
                   )
                       : SizedBox(
                     height: 80,
                     width: 220,
                     child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Image.asset('assets/images/bgName.png')),
+                        child: Image.asset('assets/logo.png')),
                   ),
                 ],
               );
