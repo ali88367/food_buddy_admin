@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   get:
   sidebarx: ^0.17.1
+  intl:
 
 dev_dependencies:
   flutter_test:

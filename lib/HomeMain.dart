@@ -9,6 +9,8 @@ import 'RedemptionLogs.dart';
 import 'Restaurants.dart';
 import 'UserDetails.dart';
 import 'cashbacks.dart';
+import 'configurations.dart';
+import 'monthlyReport.dart';
 
 
 
@@ -46,9 +48,9 @@ class _HomeMainState extends State<HomeMain> {
                         : sidebarController.selectedindex.value == 3
                         ? CashbackMonitoringPage()
                         : sidebarController.selectedindex.value == 4
-                        ? ContactPage()
+                        ? PaymentReportsPage()
                         : sidebarController.selectedindex.value == 5
-                        ? ContactPage()
+                        ? SystemConfigurationsPage()
                         : sidebarController.selectedindex.value == 6
                         ? ContactPage()
                         : ContactPage()))
