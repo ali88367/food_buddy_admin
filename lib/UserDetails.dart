@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:food_buddy_admin/colors.dart';
 
 
 class ContactPage extends StatefulWidget {
@@ -44,7 +45,7 @@ class _ContactPageState extends State<ContactPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF7DD4C7),
+      backgroundColor: background,
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 1400),

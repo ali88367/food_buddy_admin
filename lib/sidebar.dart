@@ -1,291 +1,123 @@
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:food_buddy_admin/colors.dart';
-import 'package:food_buddy_admin/sideBarController.dart';
-
 import 'package:get/get.dart';
 import 'package:sidebarx/sidebarx.dart';
-
-
+import 'sideBarController.dart';
+import 'colors.dart'; // make sure this has 'background' defined
 
 class ExampleSidebarX extends StatefulWidget {
+  const ExampleSidebarX({super.key});
+
   @override
   State<ExampleSidebarX> createState() => _ExampleSidebarXState();
 }
 
 class _ExampleSidebarXState extends State<ExampleSidebarX> {
-
-  // void _showLogoutDialog() {
-  //   showDialog(
-  //     context: context,
-  //     builder: (BuildContext context) {
-  //       return AlertDialog(
-  //         backgroundColor: backgroundColor,
-  //         title: Text('Logout'),
-  //         content: Text('Are you sure you want to logout?'),
-  //         actions: <Widget>[
-  //           CustomButton(
-  //             color: Colors.transparent,
-  //             width: 100,
-  //             height: 40,
-  //             text: 'No',
-  //             textColor: Colors.red,
-  //             onPressed: () {
-  //               sidebarController.selectedindex.value = 0;
-  //
-  //               Navigator.of(context).pop();
-  //             },
-  //           ),
-  //           CustomButton(
-  //             width: 100,
-  //             height: 40,
-  //             text: 'Yes',
-  //             onPressed: () async {
-  //               await FirebaseAuth.instance.signOut();
-  //               Navigator.of(context).pop();
-  //               Navigator.of(context).pushReplacement(
-  //                 MaterialPageRoute(builder: (context) => LoginPage()),
-  //               );
-  //             },
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
   final SidebarController sidebarController = Get.put(SidebarController());
 
   @override
   Widget build(BuildContext context) {
-    print('hellosidebarController${sidebarController.selectedindex.value}');
-    // final setNameProvider=Provider.of<GetHeadingNurseName>(context,listen: false);
+    const coral = Color(0xFFFF7D6B); // coral pink button color
+    const mint = Color(0xFF93E4D0); // mint background color
+
     return GetBuilder<SidebarController>(
-        builder: (sidebarController) {
-          return SidebarX(
-            controller: sidebarController.controller,
-            theme: SidebarXTheme(
-              margin: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              hoverColor: Colors.green,
-              textStyle:
-              TextStyle(color: Colors.blue.withOpacity(0.5), fontSize: 18),
-              selectedTextStyle:
-              const TextStyle(color: Colors.blue, fontSize: 18),
-              hoverTextStyle: const TextStyle(
-                fontSize: 18,
-                color: Colors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-              itemTextPadding: const EdgeInsets.only(left: 10),
-              selectedItemTextPadding: const EdgeInsets.only(left: 10),
-              itemDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue),
-              ),
-              selectedItemDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.white,
-                ),
-                gradient: LinearGradient(
-                  colors: [Colors.white70, Colors.blue.withOpacity(0.5)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green,
-                    blurRadius: 30,
-                  )
-                ],
-              ),
-              iconTheme: IconThemeData(
-                color: Colors.blue,
-                size: 10,
-              ),
-              selectedIconTheme: const IconThemeData(
-                color: Colors.white,
-                size: 10,
-              ),
+      builder: (_) {
+        return SidebarX(
+          controller: sidebarController.controller,
+          theme: SidebarXTheme(
+            margin: const EdgeInsets.all(0),
+            decoration: const BoxDecoration(
+              color: mint,
             ),
-            extendedTheme: SidebarXTheme(
-              width: 200,
-              decoration: BoxDecoration(
-                color: background,
-              ),
+            itemDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white, width: 1),
             ),
-            footerDivider: Divider(),
-            headerBuilder: (context, extended) {
-              return Column(
-                children: [
-                  SizedBox(
-                    height: 20,
-                  ),
-                  Obx(
-                        () =>
-                    sidebarController.showsidebar.value == true
-                        ? Align(
-                        alignment: Alignment.topRight,
-                        child: Icon(
-                          Icons.clear_sharp,
-                          color: Colors.blue,
-                        ))
-                        : SizedBox.shrink(),
-                  ),
-                  Get.width <= 1440
-                      ? SizedBox(
-                    height: 100,
-                    width: 500,
-                    child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Image.asset('assets/logo.png')),
-                  )
-                      : Get.width > 1440 && Get.width <= 2550
-                      ? SizedBox(
-                    height: 100,
-                    width: 500,
-                    child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Image.asset('assets/logo.png')),
-                  )
-                      : SizedBox(
-                    height: 80,
-                    width: 220,
-                    child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Image.asset('assets/logo.png')),
-                  ),
-                ],
-              );
-            },
-            items: [
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value = 0;
-
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'User Data'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value = 1;
-
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Assesments'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value = 2;
-
-
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Read'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value = 3;
-
-                    // setNameProvider.setName('Profile');
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Responses'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value =
-                    4;
-
-                    // setNameProvider.setName('Profile');
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Add Audio'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value =
-                    5;
-
-                    // setNameProvider.setName('Profile');
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Notifications'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value =
-                    6;
-
-                    // setNameProvider.setName('Profile');
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Help'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value =
-                    7;
-
-                    // setNameProvider.setName('Profile');
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Challenges'),
-              SidebarXItem(
-                  onTap: () {
-                    sidebarController.selectedindex.value = 0;
-                    sidebarController.controller =SidebarXController(selectedIndex: 0, extended: true);sidebarController.update();
-                    //
-                //    _showLogoutDialog();
-
-                  },
-                  iconBuilder: (selected, hovered) {
-                    return Icon(
-                      Icons.home,
-                      color: Colors.transparent,
-                    );
-                  },
-                  label: 'Log out'),
-
-            ],
-          );
-        });
+            selectedItemDecoration: BoxDecoration(
+              color: coral,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            textStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            selectedTextStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            iconTheme: const IconThemeData(
+              color: Colors.white,
+              size: 20,
+            ),
+            selectedIconTheme: const IconThemeData(
+              color: Colors.white,
+              size: 22,
+            ),
+            itemTextPadding: const EdgeInsets.symmetric(horizontal: 12),
+            itemPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          ),
+          extendedTheme: SidebarXTheme(
+            width: 220,
+            decoration: const BoxDecoration(color: mint),
+          ),
+          headerBuilder: (context, extended) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40.0),
+            child: Column(
+              children: [
+                Image.asset(
+                  'assets/logo.png', // place your logo in assets
+                  width: 100,
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+          items: [
+            SidebarXItem(
+              icon: Icons.person,
+              label: 'User Data',
+              onTap: () => sidebarController.selectedindex.value = 0,
+            ),
+            SidebarXItem(
+              icon: Icons.restaurant,
+              label: 'Restaurants',
+              onTap: () => sidebarController.selectedindex.value = 1,
+            ),
+            SidebarXItem(
+              icon: Icons.local_offer,
+              label: 'Offers',
+              onTap: () => sidebarController.selectedindex.value = 2,
+            ),
+            SidebarXItem(
+              icon: Icons.card_giftcard,
+              label: 'Redemptions',
+              onTap: () => sidebarController.selectedindex.value = 3,
+            ),
+            SidebarXItem(
+              icon: Icons.settings,
+              label: 'Configurations',
+              onTap: () => sidebarController.selectedindex.value = 4,
+            ),
+            SidebarXItem(
+              icon: Icons.attach_money,
+              label: 'Cash Back',
+              onTap: () => sidebarController.selectedindex.value = 5,
+            ),
+            SidebarXItem(
+              icon: Icons.bar_chart,
+              label: 'Reports',
+              onTap: () => sidebarController.selectedindex.value = 6,
+            ),
+          ],
+          footerBuilder: (context, extended) => const Padding(
+            padding: EdgeInsets.only(bottom: 12.0),
+            child: Icon(
+              Icons.arrow_back_ios_new,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        );
+      },
+    );
   }
 }
