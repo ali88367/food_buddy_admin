@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:food_buddy_admin/HomeMain.dart';
-import 'package:food_buddy_admin/Login.dart';
-import 'package:food_buddy_admin/UserDetails.dart';
-import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/get.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-void main() {
+import 'package:food_buddy_admin/HomeMain.dart';
+import 'firebase_options.dart'; // generated automatically after setup
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 
@@ -15,9 +24,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
+      title: 'Food Buddy Admin',
       home: HomeMain(),
     );
   }
 }
+
+
 

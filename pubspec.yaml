@@ -37,6 +37,8 @@ dependencies:
   get:
   sidebarx: ^0.17.1
   intl:
+  firebase_core:
+  cloud_firestore:
 
 dev_dependencies:
   flutter_test:
