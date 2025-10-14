@@ -39,6 +39,8 @@ dependencies:
   intl:
   firebase_core:
   cloud_firestore:
+  firebase_storage:
+  file_picker:
 
 dev_dependencies:
   flutter_test:

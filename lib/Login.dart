@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:food_buddy_admin/HomeMain.dart';
+import 'package:get/get.dart'; // optional for navigation if you're using GetX
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,21 +16,63 @@ class _LoginPageState extends State<LoginPage> {
   bool isPasswordVisible = false;
   bool isLoading = false;
 
-  void login() async {
+  Future<void> login() async {
     setState(() {
       isLoading = true;
     });
 
-    // Just simulate a login delay (for static example)
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // 🔥 Fetch admin credentials from Firestore
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection('admin')
+          .doc('HxAG1y2VAn0mF99ENUdV')
+          .get();
 
-    setState(() {
-      isLoading = false;
-    });
+      if (snapshot.exists) {
+        String firebaseEmail = snapshot.get('email');
+        String firebasePassword = snapshot.get('password');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Login button pressed!")),
-    );
+        // Check entered credentials
+        if (emailController.text.trim() == firebaseEmail &&
+            passwordController.text.trim() == firebasePassword) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Login successful!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Example navigation after success (if you’re using GetX)
+           Get.offAll(() => const HomeMain());
+
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Invalid email or password!"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Admin data not found in Firestore."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -35,12 +80,11 @@ class _LoginPageState extends State<LoginPage> {
     final width = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFF93E4D0),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Logo
               SizedBox(
@@ -55,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
                     ? 100
                     : 150,
                 child: Image.asset(
-                  'assets/images/bglogo.png',
+                  'assets/logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
@@ -139,7 +183,7 @@ class _LoginPageState extends State<LoginPage> {
                       icon: Transform.scale(
                         scale: 0.5,
                         child: Image.asset(
-                          'assets/images/arrowIcon.png',
+                          'assets/arrowIcon.png',
                           color: const Color(0xFF264653),
                         ),
                       ),

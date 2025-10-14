@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class SystemConfigurationsPage extends StatefulWidget {
   const SystemConfigurationsPage({Key? key}) : super(key: key);
@@ -9,16 +11,76 @@ class SystemConfigurationsPage extends StatefulWidget {
 }
 
 class _SystemConfigurationsPageState extends State<SystemConfigurationsPage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   late TextEditingController cashbackRateController;
   late TextEditingController redemptionFeesController;
   late TextEditingController qrCodeExpirationController;
 
+  bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
-    cashbackRateController = TextEditingController(text: '5');
-    redemptionFeesController = TextEditingController(text: '0.3');
-    qrCodeExpirationController = TextEditingController(text: '30');
+    cashbackRateController = TextEditingController();
+    redemptionFeesController = TextEditingController();
+    qrCodeExpirationController = TextEditingController();
+    _fetchConfigurations();
+  }
+
+  /// 🔹 Fetch values from Firestore
+  Future<void> _fetchConfigurations() async {
+    try {
+      DocumentSnapshot snapshot =
+      await _firestore.collection('configurations').doc('system_settings').get();
+
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        cashbackRateController.text = data['cashbackRate'].toString();
+        redemptionFeesController.text = data['redemptionFees'].toString();
+        qrCodeExpirationController.text = data['qrExpirationTime'].toString();
+      }
+    } catch (e) {
+      debugPrint("Error fetching configurations: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to load configurations"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  /// 🔹 Update values in Firestore
+  Future<void> _saveConfigurations() async {
+    try {
+      await _firestore.collection('configurations').doc('system_settings').update({
+        'cashbackRate': double.tryParse(cashbackRateController.text) ?? 0,
+        'redemptionFees': double.tryParse(redemptionFeesController.text) ?? 0,
+        'qrExpirationTime': int.tryParse(qrCodeExpirationController.text) ?? 0,
+        'updatedAt': DateTime.now(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Configurations updated successfully!'),
+          backgroundColor: Color(0xFF7FD8BE),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint("Error saving configurations: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save configurations'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
@@ -27,16 +89,6 @@ class _SystemConfigurationsPageState extends State<SystemConfigurationsPage> {
     redemptionFeesController.dispose();
     qrCodeExpirationController.dispose();
     super.dispose();
-  }
-
-  void _saveConfigurations() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Configurations saved successfully!'),
-        backgroundColor: Color(0xFF7FD8BE),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   @override
@@ -55,7 +107,9 @@ class _SystemConfigurationsPageState extends State<SystemConfigurationsPage> {
           ),
         ),
       ),
-      body: Center(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF7FD8BE)))
+          : Center(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -64,7 +118,6 @@ class _SystemConfigurationsPageState extends State<SystemConfigurationsPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Title
                   const Text(
                     'Adjust System Parameters',
                     style: TextStyle(
@@ -104,7 +157,8 @@ class _SystemConfigurationsPageState extends State<SystemConfigurationsPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF7FD8BE),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding:
+                        const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -117,6 +171,34 @@ class _SystemConfigurationsPageState extends State<SystemConfigurationsPage> {
                         ),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Updated At Display
+                  FutureBuilder<DocumentSnapshot>(
+                    future: _firestore
+                        .collection('configurations')
+                        .doc('system_settings')
+                        .get(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox();
+                      }
+                      if (!snapshot.hasData || !snapshot.data!.exists) {
+                        return const SizedBox();
+                      }
+                      final data = snapshot.data!.data() as Map<String, dynamic>;
+                      final updatedAt = (data['updatedAt'] as Timestamp?)?.toDate();
+                      return Text(
+                        updatedAt != null
+                            ? 'Last Updated: ${DateFormat.yMMMd().add_jm().format(updatedAt)}'
+                            : '',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -153,7 +235,7 @@ class _ConfigurationInput extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,

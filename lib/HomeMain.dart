@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:food_buddy_admin/offers.dart';
 import 'package:food_buddy_admin/sideBarController.dart';
 import 'package:food_buddy_admin/sidebar.dart';
 import 'package:get/get.dart';
@@ -44,16 +45,16 @@ class _HomeMainState extends State<HomeMain> {
                         : sidebarController.selectedindex.value == 1
                         ? RestaurantPage()
                         : sidebarController.selectedindex.value == 2
-                        ? RedemptionLogsPage()
+                        ? OffersPage()
                         : sidebarController.selectedindex.value == 3
-                        ? CashbackMonitoringPage()
+                        ? RedemptionLogsPage()
                         : sidebarController.selectedindex.value == 4
-                        ? PaymentReportsPage()
-                        : sidebarController.selectedindex.value == 5
                         ? SystemConfigurationsPage()
+                        : sidebarController.selectedindex.value == 5
+                        ? CashbackMonitoringPage()
                         : sidebarController.selectedindex.value == 6
-                        ? ContactPage()
-                        : ContactPage()))
+                        ? PaymentReportsPage()
+                        : PaymentReportsPage()))
               ],
             ),
             Obx(()=>sidebarController.showsidebar.value == true? ExampleSidebarX():SizedBox.shrink(),)
