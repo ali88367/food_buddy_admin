@@ -14,114 +14,140 @@ class ExampleSidebarX extends StatefulWidget {
 class _ExampleSidebarXState extends State<ExampleSidebarX> {
   final SidebarController sidebarController = Get.put(SidebarController());
 
+  // ──────────────────────────────────────
+  //  Your beloved colors (unchanged!)
+  // ──────────────────────────────────────
+  static const mint = Color(0xFF93E4D0);
+  static const red  = Color(0xFFE64A4A); // keep your red from colors.dart
+
   @override
   Widget build(BuildContext context) {
-    const mint = Color(0xFF93E4D0); // mint background color
-
     return GetBuilder<SidebarController>(
       builder: (_) {
         return SidebarX(
           controller: sidebarController.controller,
           theme: SidebarXTheme(
-            margin: const EdgeInsets.all(0),
-            decoration: const BoxDecoration(
-              color: mint,
+            margin: EdgeInsets.zero,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end:   Alignment.bottomRight,
+                colors: [mint, Color(0xFF7AD9C2)], // soft mint gradient
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 30,
+                  offset: const Offset(12, 0),
+                ),
+              ],
             ),
+            // ────── Item Styling ──────
             itemDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white, width: 1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
             ),
-            hoverColor: red,
-            hoverTextStyle: TextStyle(color: Colors.white),
             selectedItemDecoration: BoxDecoration(
-              color: red,
-
-              borderRadius: BorderRadius.circular(10),
+              gradient: const LinearGradient(
+                colors: [red, Color(0xFFFF6B6B)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: red.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
+            hoverColor: red.withOpacity(0.15),
+            hoverTextStyle: TextStyle(color: Colors.white),
+            hoverIconTheme: const IconThemeData(
+              color: Colors.red,        // ← YOUR RED
+              size: 26,                 // slightly bigger = premium feel
+            ),            // ────── Text & Icons ──────
             textStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w500,
+              fontSize: 15,
+              letterSpacing: 0.3,
             ),
-
             selectedTextStyle: const TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
             ),
+            iconTheme: const IconThemeData(color: Colors.white, size: 22),
+            selectedIconTheme: const IconThemeData(color: Colors.white, size: 26),
+            // ────── Spacing ──────
+            itemPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            itemTextPadding: const EdgeInsets.only(left: 14),
+          ),
+          extendedTheme: const SidebarXTheme(
+            width: 240,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [mint, Color(0xFF7AD9C2)],
+              ),
+            ),
+            padding: EdgeInsets.only(top: 20),
+          ),
 
-            iconTheme: const IconThemeData(
-              color: Colors.white,
-              size: 20,
+          // ────── Header (Logo) ──────
+          headerBuilder: (context, extended) => Container(
+            padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white.withOpacity(0.15), Colors.transparent],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
-            selectedIconTheme: const IconThemeData(
-              color: Colors.white,
-              size: 22,
-            ),
-            itemTextPadding: const EdgeInsets.symmetric(horizontal: 12),
-            itemPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          ),
-          extendedTheme: SidebarXTheme(
-            width: 220,
-            decoration: const BoxDecoration(color: mint),
-          ),
-          headerBuilder: (context, extended) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40.0),
             child: Column(
               children: [
-                Image.asset(
-                  'assets/logo.png', // place your logo in assets
-                  width: 100,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
                 ),
-                const SizedBox(height: 30),
+
               ],
             ),
           ),
+
+          // ────── Menu Items ──────
           items: [
-            SidebarXItem(
-              icon: Icons.person,
-              label: 'User Data',
-              onTap: () => sidebarController.selectedindex.value = 0,
-            ),
-            SidebarXItem(
-              icon: Icons.restaurant,
-              label: 'Restaurants',
-              onTap: () => sidebarController.selectedindex.value = 1,
-            ),
-            SidebarXItem(
-              icon: Icons.local_offer,
-              label: 'Offers',
-              onTap: () => sidebarController.selectedindex.value = 2,
-            ),
-            SidebarXItem(
-              icon: Icons.card_giftcard,
-              label: 'Redemptions',
-              onTap: () => sidebarController.selectedindex.value = 3,
-            ),
-            SidebarXItem(
-              icon: Icons.settings,
-              label: 'Configurations',
-              onTap: () => sidebarController.selectedindex.value = 4,
-            ),
-            SidebarXItem(
-              icon: Icons.attach_money,
-              label: 'Cash Back',
-              onTap: () => sidebarController.selectedindex.value = 5,
-            ),
-            SidebarXItem(
-              icon: Icons.bar_chart,
-              label: 'Reports',
-              onTap: () => sidebarController.selectedindex.value = 6,
-            ),
+            _item(Icons.person,          'User Data',       0),
+            _item(Icons.restaurant,     'Restaurants',     1),
+            _item(Icons.local_offer,    'Offers',          2),
+            _item(Icons.card_giftcard,  'Redemptions',     3),
+            _item(Icons.settings,       'Configurations',  4),
+            _item(Icons.attach_money,   'Cash Back',       5),
+            _item(Icons.bar_chart,      'Reports',         6),
           ],
-          footerBuilder: (context, extended) => const Padding(
-            padding: EdgeInsets.only(bottom: 12.0),
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
+
+
         );
       },
+    );
+  }
+
+  // Helper to keep code tidy
+  SidebarXItem _item(IconData icon, String label, int index) {
+    return SidebarXItem(
+      icon: icon,
+      label: label,
+      onTap: () => sidebarController.selectedindex.value = index,
     );
   }
 }

@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Food Buddy Admin',
-      home: HomeMain(),
+      home: LoginPage(),
     );
   }
 }

@@ -1,573 +1,369 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:csv/csv.dart';
+import 'dart:html' as html;
+import 'package:fl_chart/fl_chart.dart'; // ← NEW: Add to pubspec.yaml
 
 class PaymentReportsPage extends StatefulWidget {
   const PaymentReportsPage({Key? key}) : super(key: key);
-
   @override
   State<PaymentReportsPage> createState() => _PaymentReportsPageState();
 }
 
 class _PaymentReportsPageState extends State<PaymentReportsPage> {
-  String selectedMonth = 'Oct 1, 2025 - Oct 31, 2025';
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  DateTime _selectedStartDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _selectedEndDate = DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
 
-  // Sample data
-  final double totalRedemptionFees = 0.0;
-  final double totalCashback = 0.0;
-  final double totalCashbackDistributed = 0.0;
-  final double totalCashbackRedeemed = 0.0;
+  bool _isLoading = true;
+  double totalRedemptionFees = 0.0;
+  double totalCashback = 0.0;
+  double totalCashbackDistributed = 0.0;
+  double totalCashbackRedeemed = 0.0;
+  Map<String, RestaurantData> restaurantMap = {};
+  List<RestaurantData> filteredRestaurants = [];
+  final TextEditingController _searchController = TextEditingController();
 
-  final List<RestaurantData> restaurants = [
-    RestaurantData(
-      name: 'Sogat Blasting Burger',
-      cashback: 0.0,
-      redemptionFees: 0.0,
-      netRevenue: 0.0,
-      redemptionCount: 0,
-    ),
-    RestaurantData(
-      name: 'Heaven',
-      cashback: 0.0,
-      redemptionFees: 0.0,
-      netRevenue: 0.0,
-      redemptionCount: 0,
-    ),
-    RestaurantData(
-      name: 'Blasting',
-      cashback: 0.0,
-      redemptionFees: 0.0,
-      netRevenue: 0.0,
-      redemptionCount: 0,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // FORCE show your 1 transaction
+    _selectedStartDate = DateTime(2024, 1, 1);
+    _selectedEndDate = DateTime.now();
+    _fetchTransactions();
+    _startAutoRefresh();
+    _searchController.addListener(_filterRestaurants);
+  }
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterRestaurants);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    Future.delayed(const Duration(seconds: 30), () {
+      if (mounted) {
+        _fetchTransactions();
+        _startAutoRefresh();
+      }
+    });
+  }
+
+  String get selectedMonth {
+    final f = DateFormat('MMM d, yyyy');
+    return '${f.format(_selectedStartDate)} - ${f.format(_selectedEndDate)}';
+  }
+
+  Future<void> _fetchTransactions() async {
+    setState(() => _isLoading = true);
+    try {
+      totalRedemptionFees = totalCashback = totalCashbackDistributed = totalCashbackRedeemed = 0.0;
+      restaurantMap.clear();
+
+      final start = Timestamp.fromDate(_selectedStartDate);
+      final end = Timestamp.fromDate(_selectedEndDate.add(const Duration(days: 1)));
+
+      final snap = await _firestore
+          .collection('transactions')
+          .where('timestamp', isGreaterThanOrEqualTo: start)
+          .where('timestamp', isLessThan: end)
+          .get();
+
+      for (var doc in snap.docs) {
+        final d = doc.data();
+        if (d['status'] != 'completed') continue;
+
+        final cashback = (d['cashbackAmount'] as num?)?.toDouble() ?? 0.0;
+        final fee = (d['transactionFee'] as num?)?.toDouble() ?? 0.0;
+        final id = d['restaurantId']?.toString() ?? 'unknown';
+        final name = d['restaurantName']?.toString() ?? 'Unknown';
+
+        totalCashback += cashback;
+        totalRedemptionFees += fee;
+        totalCashbackDistributed += cashback;
+
+        restaurantMap.putIfAbsent(id, () => RestaurantData(
+          name: name,
+          cashback: 0,
+          redemptionFees: 0,
+          netRevenue: 0,
+          redemptionCount: 0,
+        ));
+
+        final r = restaurantMap[id]!;
+        restaurantMap[id] = RestaurantData(
+          name: name,
+          cashback: r.cashback + cashback,
+          redemptionFees: r.redemptionFees + fee,
+          netRevenue: r.netRevenue + (fee - cashback),
+          redemptionCount: r.redemptionCount + 1,
+        );
+      }
+      totalCashbackRedeemed = totalCashback;
+      _filterRestaurants();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _filterRestaurants() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      filteredRestaurants = restaurantMap.values
+          .where((r) => r.name.toLowerCase().contains(query))
+          .toList();
+    });
+  }
+
+  Future<void> _selectDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: _selectedStartDate, end: _selectedEndDate),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedStartDate = picked.start;
+        _selectedEndDate = picked.end;
+      });
+      _fetchTransactions();
+    }
+  }
+
+  void _downloadCSV() {
+    final rows = [
+      ['Payment Report - $selectedMonth'],
+      [],
+      ['Summary'],
+      ['Total Fees', totalRedemptionFees.toStringAsFixed(2)],
+      ['Total Cashback', totalCashback.toStringAsFixed(2)],
+      ['Net Revenue', (totalRedemptionFees - totalCashback).toStringAsFixed(2)],
+      [],
+      ['Restaurant', 'Redemptions', 'Cashback', 'Fees', 'Net'],
+      ...filteredRestaurants.map((r) => [
+        r.name,
+        r.redemptionCount,
+        r.cashback.toStringAsFixed(2),
+        r.redemptionFees.toStringAsFixed(2),
+        r.netRevenue.toStringAsFixed(2),
+      ])
+    ];
+
+    final csv = const ListToCsvConverter().convert(rows);
+    final blob = html.Blob([csv.codeUnits]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..download = 'foodbuddy_report_${DateFormat('yyyy_MM').format(_selectedStartDate)}.csv'
+      ..click();
+    html.Url.revokeObjectUrl(url);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CSV downloaded!')));
+  }
 
   @override
   Widget build(BuildContext context) {
     final netRevenue = totalRedemptionFees - totalCashback;
+    final restaurants = filteredRestaurants;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFF7FD8BE),
-        elevation: 0,
-        title: const Text(
-          'Monthly Payment Reports',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('Monthly Payment Reports', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              // Refresh data
-            },
-          ),
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _fetchTransactions),
+          IconButton(icon: const Icon(Icons.auto_awesome, color: Colors.white), tooltip: 'Auto-refresh ON', onPressed: () {}),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF7FD8BE)))
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Revenue Overview Section
-            _SectionHeader(
-              title: 'Revenue Overview',
-              subtitle: 'Total fees and revenue for selected period',
+            // Search Bar
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search restaurants...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _RevenueCard(
-                    title: 'Redemption Fees',
-                    amount: '\$${totalRedemptionFees.toStringAsFixed(2)}',
-                    subtitle: 'From restaurant usage',
-                    backgroundColor: const Color(0xFF7FD8BE),
-                    icon: Icons.payments_outlined,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _RevenueCard(
-                    title: 'Total Cashback',
-                    amount: '\$${totalCashback.toStringAsFixed(2)}',
-                    subtitle: 'Customer redemptions',
-                    backgroundColor: const Color(0xFFFF6B9D),
-                    icon: Icons.card_giftcard_outlined,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _RevenueCard(
-                    title: 'Net Revenue',
-                    amount: '\$${netRevenue.toStringAsFixed(2)}',
-                    subtitle: 'After cashback',
-                    backgroundColor: const Color(0xFF00897B),
-                    icon: Icons.trending_up,
-                  ),
-                ),
-              ],
-            ),
+            const SizedBox(height: 20),
 
+            // // Charts
+            // if (restaurants.isNotEmpty) ...[
+            //   const _SectionHeader(title: 'Revenue Breakdown', subtitle: 'Visual overview'),
+            //   const SizedBox(height: 16),
+            //   Row(
+            //     children: [
+            //       Expanded(child: _PieChartWidget(fees: totalRedemptionFees, cashback: totalCashback)),
+            //       const SizedBox(width: 16),
+            //       Expanded(child: _BarChartWidget(data: restaurants.take(5).toList())),
+            //     ],
+            //   ),
+            //   const SizedBox(height: 32),
+            // ],
+
+            // Revenue Cards
+            _buildRevenueCards(netRevenue),
             const SizedBox(height: 32),
 
-            // Cashback Monitoring Section
-            _SectionHeader(
-              title: 'Cashback Monitoring',
-              subtitle: 'Track cashback distribution and redemption',
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _CashbackMetric(
-                          label: 'Distributed',
-                          amount: '\$${totalCashbackDistributed.toStringAsFixed(2)}',
-                          icon: Icons.arrow_upward,
-                          color: const Color(0xFF2196F3),
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 60,
-                        color: Colors.grey[200],
-                      ),
-                      Expanded(
-                        child: _CashbackMetric(
-                          label: 'Redeemed',
-                          amount: '\$${totalCashbackRedeemed.toStringAsFixed(2)}',
-                          icon: Icons.arrow_downward,
-                          color: const Color(0xFF4CAF50),
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 60,
-                        color: Colors.grey[200],
-                      ),
-                      Expanded(
-                        child: _CashbackMetric(
-                          label: 'Pending',
-                          amount: '\$${(totalCashbackDistributed - totalCashbackRedeemed).toStringAsFixed(2)}',
-                          icon: Icons.pending_outlined,
-                          color: const Color(0xFFFFA726),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3E0),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFFB74D)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Color(0xFFFF9800), size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'No customers approaching \$5 redemption threshold',
-                            style: TextStyle(
-                              color: Colors.grey[800],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Revenue Breakdown Chart
-            _SectionHeader(
-              title: 'Revenue Breakdown',
-              subtitle: 'Visual representation of monthly trends',
-            ),
-            const SizedBox(height: 16),
-            Container(
-              height: 300,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.bar_chart, size: 48, color: Colors.grey[300]),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Chart will be displayed here',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Install fl_chart package to visualize data',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Date Selection and Actions
+            // Date & Actions
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 8),
-                    Text(
-                      selectedMonth,
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Show month picker
-                      },
-                      icon: const Icon(Icons.edit_calendar, size: 18),
-                      label: const Text('Select Month'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF7FD8BE),
-                        side: const BorderSide(color: Color(0xFF7FD8BE)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Download CSV
-                      },
-                      icon: const Icon(Icons.download, size: 18),
-                      label: const Text('Download CSV'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00897B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                Row(children: [const Icon(Icons.calendar_today, size: 16), const SizedBox(width: 8), Text(selectedMonth)]),
+                Row(children: [
+                  OutlinedButton.icon(onPressed: _selectDateRange, icon: const Icon(Icons.edit_calendar), label: const Text('Change')),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(onPressed: _downloadCSV, icon: const Icon(Icons.download), label: const Text('CSV')),
+                ]),
               ],
             ),
-
             const SizedBox(height: 32),
 
-            // Restaurant Breakdown Table
-            _SectionHeader(
-              title: 'Restaurant Breakdown',
-              subtitle: 'Detailed revenue breakdown by restaurant',
-            ),
+            // Table
+            _SectionHeader(title: 'Restaurant Breakdown', subtitle: '${restaurants.length} restaurants'),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF7FD8BE),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Restaurant',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Redemptions',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Cashback',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Fees',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Net Revenue',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Table Rows
-                  ...restaurants.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final data = entry.value;
-                    return _RestaurantRow(
-                      data: data,
-                      isEven: index % 2 == 0,
-                      isLast: index == restaurants.length - 1,
-                    );
-                  }).toList(),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
+            _buildTable(restaurants),
           ],
         ),
       ),
     );
   }
-}
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildRevenueCards(double netRevenue) {
+    return Row(
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF2D3748),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
-          ),
-        ),
+        Expanded(child: _RevenueCard(title: 'Fees', amount: '\$${totalRedemptionFees.toStringAsFixed(2)}', icon: Icons.payments, color: const Color(0xFF7FD8BE))),
+        const SizedBox(width: 16),
+        Expanded(child: _RevenueCard(title: 'Cashback', amount: '\$${totalCashback.toStringAsFixed(2)}', icon: Icons.card_giftcard, color: const Color(0xFFFF6B9D))),
+        const SizedBox(width: 16),
+        Expanded(child: _RevenueCard(title: 'Net', amount: '\$${netRevenue.toStringAsFixed(2)}', icon: Icons.trending_up, color: const Color(0xFF00897B))),
       ],
+    );
+  }
+
+  Widget _buildTable(List<RestaurantData> restaurants) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10)]),
+      child: restaurants.isEmpty
+          ? const Padding(padding: EdgeInsets.all(40), child: Text('No data', style: TextStyle(color: Colors.grey)))
+          : Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: const BoxDecoration(color: Color(0xFF7FD8BE), borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+            child: const Row(children: [
+              Expanded(flex: 2, child: Text('Restaurant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+              Expanded(child: Text('Count', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+              Expanded(child: Text('Cashback', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+              Expanded(child: Text('Fees', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+              Expanded(child: Text('Net', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+            ]),
+          ),
+          ...restaurants.asMap().entries.map((e) {
+            final r = e.value;
+            final even = e.key % 2 == 0;
+            return _RestaurantRow(data: r, isEven: even);
+          }),
+        ],
+      ),
     );
   }
 }
 
+// ────────────────── NEW WIDGETS ──────────────────
+// REPLACE BOTH CHART WIDGETS WITH THESE
+class _PieChartWidget extends StatelessWidget {
+  final double fees, cashback;
+  const _PieChartWidget({required this.fees, required this.cashback});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = fees + cashback;
+    if (total == 0) {
+      return const Card(
+        child: Padding(padding: EdgeInsets.all(40), child: Text('No data')),
+      );
+    }
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: SizedBox(                     // ← THIS WRAPS THE CARD
+        height: 260,                      // ← FIXED HEIGHT = NO INFINITY
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Revenue Split', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              Expanded(                     // ← LET PIE FILL THE REMAINING SPACE
+                child: PieChart(
+                  PieChartData(
+                    sections: [
+                      PieChartSectionData(
+                        value: fees,
+                        color: const Color(0xFF7FD8BE),
+                        title: '${(fees / total * 100).toInt()}%',
+                        titleStyle: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      PieChartSectionData(
+                        value: cashback,
+                        color: const Color(0xFFFF6B9D),
+                        title: '${(cashback / total * 100).toInt()}%',
+                        titleStyle: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                    sectionsSpace: 4,
+                    centerSpaceRadius: 30,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Keep your existing helper widgets below (_SectionHeader, _RevenueCard, etc.)
+// ... (copy-paste them from your old file – they stay 100% the same)
+
+class _SectionHeader extends StatelessWidget {
+  final String title, subtitle;
+  const _SectionHeader({required this.title, required this.subtitle});
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)), Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.grey))]);
+}
+
 class _RevenueCard extends StatelessWidget {
-  final String title;
-  final String amount;
-  final String subtitle;
-  final Color backgroundColor;
+  final String title, amount;
   final IconData icon;
-
-  const _RevenueCard({
-    required this.title,
-    required this.amount,
-    required this.subtitle,
-    required this.backgroundColor,
-    required this.icon,
-  });
-
+  final Color color;
+  const _RevenueCard({required this.title, required this.amount, required this.icon, required this.color});
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [backgroundColor, backgroundColor.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: backgroundColor.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(icon, color: Colors.white.withOpacity(0.9), size: 24),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            amount,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CashbackMetric extends StatelessWidget {
-  final String label;
-  final String amount;
-  final IconData icon;
-  final Color color;
-
-  const _CashbackMetric({
-    required this.label,
-    required this.amount,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          amount,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
+      decoration: BoxDecoration(gradient: LinearGradient(colors: [color, color.withOpacity(0.8)]), borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(color: Colors.white, fontSize: 13)), Icon(icon, color: Colors.white)]),
+        const SizedBox(height: 16),
+        Text(amount, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
+      ]),
     );
   }
 }
@@ -575,99 +371,26 @@ class _CashbackMetric extends StatelessWidget {
 class _RestaurantRow extends StatelessWidget {
   final RestaurantData data;
   final bool isEven;
-  final bool isLast;
-
-  const _RestaurantRow({
-    required this.data,
-    required this.isEven,
-    required this.isLast,
-  });
-
+  const _RestaurantRow({required this.data, required this.isEven});
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: isEven ? const Color(0xFFF8FAFB) : Colors.white,
-        borderRadius: isLast
-            ? const BorderRadius.only(
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
-        )
-            : null,
-      ),
+      color: isEven ? const Color(0xFFF8FAFB) : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              data.name,
-              style: const TextStyle(
-                color: Color(0xFF2D3748),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '${data.redemptionCount}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '\$${data.cashback.toStringAsFixed(2)}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '\$${data.redemptionFees.toStringAsFixed(2)}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '\$${data.netRevenue.toStringAsFixed(2)}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: data.netRevenue >= 0 ? const Color(0xFF00897B) : const Color(0xFFE53935),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Expanded(flex: 2, child: Text(data.name, style: const TextStyle(fontWeight: FontWeight.w500))),
+        Expanded(child: Text('${data.redemptionCount}', textAlign: TextAlign.center)),
+        Expanded(child: Text('\$${data.cashback.toStringAsFixed(2)}', textAlign: TextAlign.center)),
+        Expanded(child: Text('\$${data.redemptionFees.toStringAsFixed(2)}', textAlign: TextAlign.center)),
+        Expanded(child: Text('\$${data.netRevenue.toStringAsFixed(2)}', textAlign: TextAlign.center, style: TextStyle(color: data.netRevenue >= 0 ? const Color(0xFF00897B) : Colors.red, fontWeight: FontWeight.w600))),
+      ]),
     );
   }
 }
 
 class RestaurantData {
   final String name;
-  final double cashback;
-  final double redemptionFees;
-  final double netRevenue;
+  final double cashback, redemptionFees, netRevenue;
   final int redemptionCount;
-
-  RestaurantData({
-    required this.name,
-    required this.cashback,
-    required this.redemptionFees,
-    required this.netRevenue,
-    required this.redemptionCount,
-  });
+  RestaurantData({required this.name, required this.cashback, required this.redemptionFees, required this.netRevenue, required this.redemptionCount});
 }

@@ -124,110 +124,133 @@ class _OffersPageState extends State<OffersPage> {
       body: SafeArea(
         child: Center(
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 800),
-            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            constraints: const BoxConstraints(maxWidth: 1200),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(10, 16, 10, 8),
+                  padding: EdgeInsets.fromLTRB(4, 8, 4, 16),
                   child: Text(
-                    'Offers',
+                    'Offers Management',
                     style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
                       color: Colors.black87,
+                      letterSpacing: -0.5,
                     ),
                   ),
                 ),
                 // Tabs
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                   child: Row(
                     children: [
                       _buildTab('Pending'),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
                       _buildTab('Approved'),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
                       _buildTab('Rejected'),
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
                 // Search Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: Colors.black38,
+                          size: 22,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Icon(
-                            Icons.search,
-                            color: Color(0xFFFF6B6B),
-                            size: 22,
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Search offers by title, restaurant, or description...',
+                            hintStyle: TextStyle(
+                              color: Colors.black38,
+                              fontSize: 15,
+                            ),
+                            border: InputBorder.none,
                           ),
                         ),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Search by title, restaurant, or description...',
-                              hintStyle: TextStyle(
-                                color: Colors.black54,
-                                fontSize: 14,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
                 // Offer Cards
                 Expanded(
                   child: isLoading
                       ? const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFFFF6B6B),
+                      color: Color(0xFF4CAF50),
+                      strokeWidth: 3,
                     ),
                   )
                       : filteredOffers.isEmpty
-                      ? const Center(
-                    child: Text(
-                      'No offers found',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black54,
-                      ),
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.local_offer_outlined,
+                          size: 64,
+                          color: Colors.black12,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No offers found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black38,
+                          ),
+                        ),
+                      ],
                     ),
                   )
                       : GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.only(bottom: 16),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 1.3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
+                      crossAxisCount: 3,
+                      childAspectRatio: 0.85,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
                     ),
                     itemCount: filteredOffers.length,
                     itemBuilder: (context, index) {
@@ -250,28 +273,36 @@ class _OffersPageState extends State<OffersPage> {
 
   Widget _buildTab(String title) {
     final isSelected = selectedTab == title;
-    return GestureDetector(
-      onTap: () => setState(() => selectedTab = title),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? const Color(0xFFFF6B6B) : Colors.black54,
+    Color tabColor;
+
+    if (title == 'Pending') {
+      tabColor = Colors.orange;
+    } else if (title == 'Approved') {
+      tabColor = const Color(0xFF4CAF50);
+    } else {
+      tabColor = const Color(0xFFE74C3C);
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => selectedTab = title),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? tabColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : Colors.black54,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
-          Container(
-            height: 2,
-            width: 50,
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFFFF6B6B) : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -293,72 +324,116 @@ class OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Color statusColor;
+    if (offer.status == 'ACTIVE') {
+      statusColor = const Color(0xFF4CAF50);
+    } else if (offer.status == 'REJECTED') {
+      statusColor = const Color(0xFFE74C3C);
+    } else {
+      statusColor = Colors.orange;
+    }
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.grey[50]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Status
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                child: Container(
-                  height: 70,
-                  width: double.infinity,
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: Icon(
-                      Icons.local_offer,
-                      size: 36,
-                      color: Color(0xFFFF6B6B),
-                    ),
+          // Header with gradient and status badge
+          Container(
+            height: 100,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  statusColor.withOpacity(0.8),
+                  statusColor.withOpacity(0.6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Stack(
+              children: [
+                // Decorative pattern
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: OfferPatternPainter(),
                   ),
                 ),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: offer.status == 'ACTIVE'
-                        ? const Color(0xFF4CAF50).withOpacity(0.9)
-                        : offer.status == 'REJECTED'
-                        ? const Color(0xFFE74C3C).withOpacity(0.9)
-                        : Colors.grey[300]!.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    offer.status,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                // Status badge
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
                       color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      offer.status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                // Discount badge
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_offer_rounded,
+                          color: statusColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${offer.discountValue} ${offer.discountType}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          // Details
+          // Content
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -366,25 +441,38 @@ class OfferCard extends StatelessWidget {
                   Text(
                     offer.offerTitle,
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF212121),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                      height: 1.2,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  // Restaurant
+                  const SizedBox(height: 8),
+                  // Restaurant name
                   Row(
                     children: [
-                      const Icon(Icons.restaurant, size: 12, color: Color(0xFFFF6B6B)),
-                      const SizedBox(width: 3),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.restaurant_rounded,
+                          size: 14,
+                          color: Color(0xFF4CAF50),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           offer.restaurantName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[700],
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -392,140 +480,171 @@ class OfferCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  // Discount
-                  Row(
-                    children: [
-                      const Icon(Icons.discount, size: 12, color: Color(0xFFFF6B6B)),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          '${offer.discountValue} ${offer.discountType}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  // Validity
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 12, color: Color(0xFFFF6B6B)),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          'Valid: ${DateFormat.yMMMd().format(offer.validFrom)} - ${DateFormat.yMMMd().format(offer.validTill)}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 12),
                   // Description
-                  Row(
-                    children: [
-                      const Icon(Icons.description, size: 12, color: Color(0xFFFF6B6B)),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          offer.description,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  // Terms
-                  Row(
-                    children: [
-                      const Icon(Icons.info, size: 12, color: Color(0xFFFF6B6B)),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          offer.terms,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  // Created At
-                  Row(
-                    children: [
-                      const Icon(Icons.create, size: 12, color: Color(0xFFFF6B6B)),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          'Created: ${DateFormat.yMMMd().format(offer.createdAt)}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // Buttons
-                  if (selectedTab == 'Pending')
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextButton(
-                          onPressed: onApprove,
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xFF4CAF50),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          child: const Text(
-                            'Approve',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                          ),
+                        const Icon(
+                          Icons.description_rounded,
+                          size: 14,
+                          color: Colors.black54,
                         ),
-                        const SizedBox(width: 6),
-                        TextButton(
-                          onPressed: onReject,
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xFFE74C3C),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            offer.description,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black87,
+                              height: 1.4,
                             ),
-                          ),
-                          child: const Text(
-                            'Reject',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Terms
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_rounded,
+                        size: 14,
+                        color: Colors.black38,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          offer.terms,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Dates
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[100]!, width: 1),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.event_available_rounded,
+                              size: 13,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Valid: ${DateFormat('MMM d, y').format(offer.validFrom)} - ${DateFormat('MMM d, y').format(offer.validTill)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.access_time_rounded,
+                              size: 13,
+                              color: Colors.black54,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Created: ${DateFormat('MMM d, y').format(offer.createdAt)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  // Action buttons
+                  if (selectedTab == 'Pending') ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: onApprove,
+                            icon: const Icon(Icons.check_circle_rounded, size: 16),
+                            label: const Text(
+                              'Approve',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4CAF50),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: onReject,
+                            icon: const Icon(Icons.cancel_rounded, size: 16),
+                            label: const Text(
+                              'Reject',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE74C3C),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -534,6 +653,28 @@ class OfferCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// Custom painter for decorative pattern in header
+class OfferPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.1)
+      ..style = PaintingStyle.fill;
+
+    // Draw circles pattern
+    for (var i = 0; i < 3; i++) {
+      canvas.drawCircle(
+        Offset(size.width * 0.8 + i * 20, size.height * 0.3),
+        30 - i * 8,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class Offer {
