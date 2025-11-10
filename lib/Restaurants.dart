@@ -33,28 +33,43 @@ class _RestaurantPageState extends State<RestaurantPage> {
 
   Future<void> fetchRestaurants() async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('restaurants').get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('restaurants')
+          .get();
 
       final List<Restaurant> loadedRestaurants = snapshot.docs.map((doc) {
         final data = doc.data();
+
+        // Determine status: Check if suspended first, then check approval status
+        String status;
+        if (data['is_suspended'] == true) {
+          status = 'SUSPENDED';
+        } else {
+          status = data['is_approved']?.toString().toUpperCase() ?? 'PENDING';
+        }
+
         return Restaurant(
           id: doc.id,
           name: data['restaurant_name'] ?? 'Unknown',
           location: data['address'] ?? 'No Address',
           type: data['restaurant_type'] ?? 'Unknown',
-          hours: '${data['opening_time'] ?? 'N/A'} - ${data['closing_time'] ?? 'N/A'}',
+          hours:
+              '${data['opening_time'] ?? 'N/A'} - ${data['closing_time'] ?? 'N/A'}',
           phone: data['phone'] ?? 'No Phone',
           email: data['email'] ?? 'No Email',
           rating: (data['average_ratings'] ?? 0).toDouble(),
           reviewCount: data['total_reviews'] ?? 0,
-          createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          status: data['is_approved']?.toString().toUpperCase() ?? 'PENDING',
+          createdAt:
+              (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          status: status,
           imageUrl: data['image_url'] ?? '',
           services: List<String>.from(data['services'] ?? []),
           openStatus: data['open_status'] ?? true,
-          emailApprovalStatus: data['is_approved_email']?.toString().toLowerCase() ?? 'pending',
+          emailApprovalStatus:
+              data['is_approved_email']?.toString().toLowerCase() ?? 'pending',
           licenseUrl: data['license_url'] ?? '',
           licenseVerified: data['license_verified'] ?? false,
+          isSuspended: data['is_suspended'] ?? false,
         );
       }).toList();
 
@@ -83,6 +98,120 @@ class _RestaurantPageState extends State<RestaurantPage> {
     }
   }
 
+  Future<void> _suspendRestaurant(Restaurant restaurant) async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Text('Suspend Restaurant?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to suspend "${restaurant.name}"?',
+              style: const TextStyle(fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This will hide the restaurant from users but preserve all data and history.',
+                      style: TextStyle(fontSize: 13, color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Suspend'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('restaurants')
+            .doc(restaurant.id)
+            .update({'is_suspended': true});
+
+        setState(() {
+          restaurant.status = 'SUSPENDED';
+          restaurant.isSuspended = true;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${restaurant.name} has been suspended'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error suspending restaurant: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to suspend restaurant: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _activateRestaurant(Restaurant restaurant) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('restaurants')
+          .doc(restaurant.id)
+          .update({'is_suspended': false});
+
+      setState(() {
+        restaurant.status = 'APPROVED';
+        restaurant.isSuspended = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${restaurant.name} has been reactivated'),
+          backgroundColor: const Color(0xFF4CAF50),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error activating restaurant: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to activate restaurant: $e')),
+      );
+    }
+  }
+
   void _showVerificationDialog(Restaurant restaurant) {
     showDialog(
       context: context,
@@ -94,10 +223,7 @@ class _RestaurantPageState extends State<RestaurantPage> {
             await FirebaseFirestore.instance
                 .collection('restaurants')
                 .doc(restaurant.id)
-                .update({
-              'is_approved': 'approved',
-              'license_verified': true,
-            });
+                .update({'is_approved': 'approved', 'license_verified': true});
             setState(() {
               restaurant.status = 'APPROVED';
               restaurant.licenseVerified = true;
@@ -128,7 +254,8 @@ class _RestaurantPageState extends State<RestaurantPage> {
   List<Restaurant> get filteredRestaurants {
     final query = _searchController.text.toLowerCase();
     return restaurants.where((restaurant) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           restaurant.name.toLowerCase().contains(query) ||
           restaurant.type.toLowerCase().contains(query) ||
           restaurant.location.toLowerCase().contains(query);
@@ -136,7 +263,9 @@ class _RestaurantPageState extends State<RestaurantPage> {
           ? restaurant.status == 'PENDING'
           : selectedTab == 'Approved'
           ? restaurant.status == 'APPROVED'
-          : restaurant.status == 'REJECTED';
+          : selectedTab == 'Rejected'
+          ? restaurant.status == 'REJECTED'
+          : restaurant.status == 'SUSPENDED';
       return matchesSearch && matchesTab;
     }).toList();
   }
@@ -193,11 +322,33 @@ class _RestaurantPageState extends State<RestaurantPage> {
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               child: Row(
                 children: [
-                  _buildTab('Pending', filteredRestaurants.where((r) => r.status == 'PENDING').length),
+                  _buildTab(
+                    'Pending',
+                    filteredRestaurants
+                        .where((r) => r.status == 'PENDING')
+                        .length,
+                  ),
                   const SizedBox(width: 32),
-                  _buildTab('Approved', filteredRestaurants.where((r) => r.status == 'APPROVED').length),
+                  _buildTab(
+                    'Approved',
+                    filteredRestaurants
+                        .where((r) => r.status == 'APPROVED')
+                        .length,
+                  ),
                   const SizedBox(width: 32),
-                  _buildTab('Rejected', filteredRestaurants.where((r) => r.status == 'REJECTED').length),
+                  _buildTab(
+                    'Rejected',
+                    filteredRestaurants
+                        .where((r) => r.status == 'REJECTED')
+                        .length,
+                  ),
+                  const SizedBox(width: 32),
+                  _buildTab(
+                    'Suspended',
+                    filteredRestaurants
+                        .where((r) => r.status == 'SUSPENDED')
+                        .length,
+                  ),
                 ],
               ),
             ),
@@ -261,57 +412,59 @@ class _RestaurantPageState extends State<RestaurantPage> {
             Expanded(
               child: isLoading
                   ? const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF4CAF50),
-                  strokeWidth: 3,
-                ),
-              )
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF4CAF50),
+                        strokeWidth: 3,
+                      ),
+                    )
                   : filteredRestaurants.isEmpty
                   ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.restaurant_menu_outlined,
-                      size: 64,
-                      color: Colors.grey[300],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No restaurants found',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(32, 0, 32, 20),
-                itemCount: filteredRestaurants.length,
-                itemBuilder: (context, index) {
-                  final restaurant = filteredRestaurants[index];
-                  return RestaurantCard(
-                    restaurant: restaurant,
-                    onVerifyEmail: () => _verifyEmail(restaurant),
-                    onVerify: () => _showVerificationDialog(restaurant),
-                    onEdit: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditRestaurantPage(
-                            restaurant: restaurant,
-                            onSave: () => fetchRestaurants(),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.restaurant_menu_outlined,
+                            size: 64,
+                            color: Colors.grey[300],
                           ),
-                        ),
-                      );
-                    },
-                    selectedTab: selectedTab,
-                  );
-                },
-              ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No restaurants found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 20),
+                      itemCount: filteredRestaurants.length,
+                      itemBuilder: (context, index) {
+                        final restaurant = filteredRestaurants[index];
+                        return RestaurantCard(
+                          restaurant: restaurant,
+                          onVerifyEmail: () => _verifyEmail(restaurant),
+                          onVerify: () => _showVerificationDialog(restaurant),
+                          onEdit: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditRestaurantPage(
+                                  restaurant: restaurant,
+                                  onSave: () => fetchRestaurants(),
+                                ),
+                              ),
+                            );
+                          },
+                          onSuspend: () => _suspendRestaurant(restaurant),
+                          onActivate: () => _activateRestaurant(restaurant),
+                          selectedTab: selectedTab,
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -327,8 +480,10 @@ class _RestaurantPageState extends State<RestaurantPage> {
       tabColor = Colors.grey.shade600;
     } else if (title == 'Approved') {
       tabColor = const Color(0xFF4CAF50);
-    } else {
+    } else if (title == 'Rejected') {
       tabColor = const Color(0xFFE74C3C);
+    } else {
+      tabColor = Colors.orange;
     }
 
     return GestureDetector(
@@ -385,6 +540,8 @@ class RestaurantCard extends StatelessWidget {
   final VoidCallback onVerifyEmail;
   final VoidCallback onVerify;
   final VoidCallback onEdit;
+  final VoidCallback onSuspend;
+  final VoidCallback onActivate;
   final String selectedTab;
 
   const RestaurantCard({
@@ -393,6 +550,8 @@ class RestaurantCard extends StatelessWidget {
     required this.onVerifyEmail,
     required this.onVerify,
     required this.onEdit,
+    required this.onSuspend,
+    required this.onActivate,
     required this.selectedTab,
   }) : super(key: key);
 
@@ -400,26 +559,33 @@ class RestaurantCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool canVerify = restaurant.emailApprovalStatus == 'approved';
 
+    Color statusColor;
+    if (restaurant.status == 'APPROVED') {
+      statusColor = const Color(0xFF4CAF50);
+    } else if (restaurant.status == 'REJECTED') {
+      statusColor = const Color(0xFFE74C3C);
+    } else if (restaurant.status == 'SUSPENDED') {
+      statusColor = Colors.orange;
+    } else {
+      statusColor = Colors.grey;
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: restaurant.status == 'APPROVED'
-              ? const Color(0xFF4CAF50).withOpacity(0.2)
-              : restaurant.status == 'REJECTED'
-              ? const Color(0xFFE74C3C).withOpacity(0.2)
-              : Colors.grey.shade200,
+          color: restaurant.status == 'PENDING'
+              ? Colors.grey.shade200
+              : statusColor.withOpacity(0.2),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: restaurant.status == 'APPROVED'
-                ? const Color(0xFF4CAF50).withOpacity(0.08)
-                : restaurant.status == 'REJECTED'
-                ? const Color(0xFFE74C3C).withOpacity(0.08)
-                : Colors.black.withOpacity(0.04),
+            color: restaurant.status == 'PENDING'
+                ? Colors.black.withOpacity(0.04)
+                : statusColor.withOpacity(0.08),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -441,11 +607,9 @@ class RestaurantCard extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: restaurant.status == 'APPROVED'
-                      ? [const Color(0xFF4CAF50).withOpacity(0.1), Colors.white]
-                      : restaurant.status == 'REJECTED'
-                      ? [const Color(0xFFE74C3C).withOpacity(0.1), Colors.white]
-                      : [Colors.grey.shade100, Colors.white],
+                  colors: restaurant.status == 'PENDING'
+                      ? [Colors.grey.shade100, Colors.white]
+                      : [statusColor.withOpacity(0.1), Colors.white],
                 ),
               ),
               child: Stack(
@@ -453,33 +617,29 @@ class RestaurantCard extends StatelessWidget {
                 children: [
                   restaurant.imageUrl.isNotEmpty
                       ? Image.network(
-                    restaurant.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Icon(
-                          Icons.restaurant_rounded,
-                          size: 48,
-                          color: restaurant.status == 'APPROVED'
-                              ? const Color(0xFF4CAF50).withOpacity(0.3)
-                              : restaurant.status == 'REJECTED'
-                              ? const Color(0xFFE74C3C).withOpacity(0.3)
-                              : Colors.grey[400],
-                        ),
-                      );
-                    },
-                  )
+                          restaurant.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Icon(
+                                Icons.restaurant_rounded,
+                                size: 48,
+                                color: restaurant.status == 'PENDING'
+                                    ? Colors.grey[400]
+                                    : statusColor.withOpacity(0.3),
+                              ),
+                            );
+                          },
+                        )
                       : Center(
-                    child: Icon(
-                      Icons.restaurant_rounded,
-                      size: 48,
-                      color: restaurant.status == 'APPROVED'
-                          ? const Color(0xFF4CAF50).withOpacity(0.3)
-                          : restaurant.status == 'REJECTED'
-                          ? const Color(0xFFE74C3C).withOpacity(0.3)
-                          : Colors.grey[400],
-                    ),
-                  ),
+                          child: Icon(
+                            Icons.restaurant_rounded,
+                            size: 48,
+                            color: restaurant.status == 'PENDING'
+                                ? Colors.grey[400]
+                                : statusColor.withOpacity(0.3),
+                          ),
+                        ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -499,25 +659,26 @@ class RestaurantCard extends StatelessWidget {
                     top: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
-                        color: restaurant.status == 'APPROVED'
-                            ? const Color(0xFF4CAF50)
-                            : restaurant.status == 'REJECTED'
-                            ? const Color(0xFFE74C3C)
-                            : Colors.white,
+                        color: restaurant.status == 'PENDING'
+                            ? Colors.white
+                            : statusColor,
                         borderRadius: BorderRadius.circular(8),
                         border: restaurant.status == 'PENDING'
-                            ? Border.all(color: Colors.grey.shade300, width: 1.5)
+                            ? Border.all(
+                                color: Colors.grey.shade300,
+                                width: 1.5,
+                              )
                             : null,
                         boxShadow: [
                           BoxShadow(
-                            color: (restaurant.status == 'APPROVED'
-                                ? const Color(0xFF4CAF50)
-                                : restaurant.status == 'REJECTED'
-                                ? const Color(0xFFE74C3C)
-                                : Colors.grey)
-                                .withOpacity(0.3),
+                            color: restaurant.status == 'PENDING'
+                                ? Colors.grey.withOpacity(0.3)
+                                : statusColor.withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -540,7 +701,10 @@ class RestaurantCard extends StatelessWidget {
                     bottom: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: restaurant.openStatus
                             ? const Color(0xFF4CAF50)
@@ -548,10 +712,11 @@ class RestaurantCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                         boxShadow: [
                           BoxShadow(
-                            color: (restaurant.openStatus
-                                ? const Color(0xFF4CAF50)
-                                : const Color(0xFFE74C3C))
-                                .withOpacity(0.4),
+                            color:
+                                (restaurant.openStatus
+                                        ? const Color(0xFF4CAF50)
+                                        : const Color(0xFFE74C3C))
+                                    .withOpacity(0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -613,7 +778,10 @@ class RestaurantCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -668,19 +836,36 @@ class RestaurantCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         _buildActionButton(
                           icon: Icons.verified_user_rounded,
-                          color: canVerify ? const Color(0xFF9C27B0) : Colors.grey.shade400,
+                          color: canVerify
+                              ? const Color(0xFF9C27B0)
+                              : Colors.grey.shade400,
                           onTap: canVerify ? onVerify : null,
                           tooltip: canVerify
                               ? 'Verify Restaurant & License'
                               : 'Verify email first',
                         ),
                       ],
-                      if (selectedTab == 'Approved')
+                      if (selectedTab == 'Approved') ...[
                         _buildActionButton(
                           icon: Icons.edit_rounded,
                           color: const Color(0xFF4CAF50),
                           onTap: onEdit,
                           tooltip: 'Edit',
+                        ),
+                        const SizedBox(width: 8),
+                        _buildActionButton(
+                          icon: Icons.block_rounded,
+                          color: Colors.orange,
+                          onTap: onSuspend,
+                          tooltip: 'Suspend Restaurant',
+                        ),
+                      ],
+                      if (selectedTab == 'Suspended')
+                        _buildActionButton(
+                          icon: Icons.play_circle_rounded,
+                          color: const Color(0xFF4CAF50),
+                          onTap: onActivate,
+                          tooltip: 'Reactivate Restaurant',
                         ),
                     ],
                   ),
@@ -691,14 +876,21 @@ class RestaurantCard extends StatelessWidget {
                     spacing: 24,
                     runSpacing: 10,
                     children: [
-                      _buildInfoItem(Icons.location_on_rounded, restaurant.location),
-                      _buildInfoItem(Icons.restaurant_menu_rounded,
-                          '${restaurant.type} • ${restaurant.services.join(", ")}'),
+                      _buildInfoItem(
+                        Icons.location_on_rounded,
+                        restaurant.location,
+                      ),
+                      _buildInfoItem(
+                        Icons.restaurant_menu_rounded,
+                        '${restaurant.type} • ${restaurant.services.join(", ")}',
+                      ),
                       _buildInfoItem(Icons.schedule_rounded, restaurant.hours),
                       _buildInfoItem(Icons.phone_rounded, restaurant.phone),
                       _buildInfoItem(Icons.email_rounded, restaurant.email),
-                      _buildInfoItem(Icons.calendar_today_rounded,
-                          'Joined ${DateFormat.yMMMd().format(restaurant.createdAt)}'),
+                      _buildInfoItem(
+                        Icons.calendar_today_rounded,
+                        'Joined ${DateFormat.yMMMd().format(restaurant.createdAt)}',
+                      ),
                     ],
                   ),
                 ],
@@ -825,12 +1017,15 @@ class VerificationDialog extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
 
-
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.verified_user_rounded, color: Colors.white, size: 32),
+                  const Icon(
+                    Icons.verified_user_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                   const SizedBox(width: 16),
                   const Text(
                     'Restaurant Verification',
@@ -859,21 +1054,55 @@ class VerificationDialog extends StatelessWidget {
                     // Info Card
                     Card(
                       elevation: 4,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildInfoRow('Restaurant Name', restaurant.name, Icons.store),
+                            _buildInfoRow(
+                              'Restaurant Name',
+                              restaurant.name,
+                              Icons.store,
+                            ),
                             const Divider(height: 24),
-                            _buildInfoRow('Address', restaurant.location, Icons.location_on),
-                            _buildInfoRow('Type', restaurant.type, Icons.category),
-                            _buildInfoRow('Services', restaurant.services.join(', '), Icons.room_service),
-                            _buildInfoRow('Hours', restaurant.hours, Icons.access_time),
-                            _buildInfoRow('Phone', restaurant.phone, Icons.phone),
-                            _buildInfoRow('Email', restaurant.email, Icons.email),
-                            _buildInfoRow('Joined', DateFormat.yMMMd().format(restaurant.createdAt), Icons.calendar_today),
+                            _buildInfoRow(
+                              'Address',
+                              restaurant.location,
+                              Icons.location_on,
+                            ),
+                            _buildInfoRow(
+                              'Type',
+                              restaurant.type,
+                              Icons.category,
+                            ),
+                            _buildInfoRow(
+                              'Services',
+                              restaurant.services.join(', '),
+                              Icons.room_service,
+                            ),
+                            _buildInfoRow(
+                              'Hours',
+                              restaurant.hours,
+                              Icons.access_time,
+                            ),
+                            _buildInfoRow(
+                              'Phone',
+                              restaurant.phone,
+                              Icons.phone,
+                            ),
+                            _buildInfoRow(
+                              'Email',
+                              restaurant.email,
+                              Icons.email,
+                            ),
+                            _buildInfoRow(
+                              'Joined',
+                              DateFormat.yMMMd().format(restaurant.createdAt),
+                              Icons.calendar_today,
+                            ),
                           ],
                         ),
                       ),
@@ -884,7 +1113,9 @@ class VerificationDialog extends StatelessWidget {
                     // License Card
                     Card(
                       elevation: 4,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
@@ -892,11 +1123,17 @@ class VerificationDialog extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.description, color: background),
+                                const Icon(
+                                  Icons.description,
+                                  color: background,
+                                ),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Business License',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -907,13 +1144,18 @@ class VerificationDialog extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.red.shade50,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.red.shade200),
+                                  border: Border.all(
+                                    color: Colors.red.shade200,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
                                     const Icon(Icons.error, color: Colors.red),
                                     const SizedBox(width: 8),
-                                    const Text('No license uploaded', style: TextStyle(color: Colors.red)),
+                                    const Text(
+                                      'No license uploaded',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
                                   ],
                                 ),
                               )
@@ -923,39 +1165,63 @@ class VerificationDialog extends StatelessWidget {
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
                                   child: isPdf
                                       ? Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
-                                        const SizedBox(height: 16),
-                                        ElevatedButton.icon(
-                                          onPressed: (){},
-                                        //  onPressed: () => jsAllowInterop(window.open(restaurant.licenseUrl, '_blank')),
-                                          icon: const Icon(Icons.open_in_new),
-                                          label: const Text('Open PDF in New Tab'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: background,
-                                            foregroundColor: Colors.white,
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.picture_as_pdf,
+                                                size: 80,
+                                                color: Colors.red,
+                                              ),
+                                              const SizedBox(height: 16),
+                                              ElevatedButton.icon(
+                                                onPressed: () {},
+                                                //  onPressed: () => jsAllowInterop(window.open(restaurant.licenseUrl, '_blank')),
+                                                icon: const Icon(
+                                                  Icons.open_in_new,
+                                                ),
+                                                label: const Text(
+                                                  'Open PDF in New Tab',
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: background,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
+                                        )
                                       : Image.network(
-                                    restaurant.licenseUrl,
-                                    fit: BoxFit.contain,
-                                    loadingBuilder: (context, child, progress) {
-                                      return progress == null ? child : const Center(child: CircularProgressIndicator());
-                                    },
-                                    errorBuilder: (context, error, stackTrace) =>
-                                    const Center(child: Icon(Icons.broken_image, size: 80, color: Colors.grey)),
-                                  ),
+                                          restaurant.licenseUrl,
+                                          fit: BoxFit.contain,
+                                          loadingBuilder:
+                                              (context, child, progress) {
+                                                return progress == null
+                                                    ? child
+                                                    : const Center(
+                                                        child:
+                                                            CircularProgressIndicator(),
+                                                      );
+                                              },
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Center(
+                                                    child: Icon(
+                                                      Icons.broken_image,
+                                                      size: 80,
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                        ),
                                 ),
                               ),
                           ],
@@ -972,7 +1238,9 @@ class VerificationDialog extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(32, 16, 32, 24),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(20),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -981,20 +1249,44 @@ class VerificationDialog extends StatelessWidget {
                     onPressed: onReject,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE74C3C),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: const Text('Reject', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,color: Colors.white)),
+                    child: const Text(
+                      'Reject',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   ElevatedButton(
                     onPressed: onApprove,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: const Text('Approve', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,color: Colors.white)),
+                    child: const Text(
+                      'Approve',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1019,12 +1311,20 @@ class VerificationDialog extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF212121)),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF212121),
+                  ),
                 ),
               ],
             ),
@@ -1057,6 +1357,7 @@ class Restaurant {
   String emailApprovalStatus;
   String licenseUrl;
   bool licenseVerified;
+  bool isSuspended;
 
   Restaurant({
     required this.id,
@@ -1076,5 +1377,6 @@ class Restaurant {
     required this.emailApprovalStatus,
     required this.licenseUrl,
     required this.licenseVerified,
+    required this.isSuspended,
   });
 }

@@ -31,7 +31,9 @@ class _OffersPageState extends State<OffersPage> {
 
   Future<void> fetchOffers() async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('offers').get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('offers')
+          .get();
       debugPrint('Fetched ${snapshot.docs.length} offers');
 
       final List<Offer> loadedOffers = snapshot.docs.map((doc) {
@@ -47,9 +49,12 @@ class _OffersPageState extends State<OffersPage> {
           discountValue: data['discountValue'] ?? '0',
           terms: data['terms'] ?? '',
           status: data['status']?.toUpperCase() ?? 'PENDING',
-          createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          validFrom: (data['validFrom'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          validTill: (data['validTill'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          createdAt:
+              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          validFrom:
+              (data['validFrom'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          validTill:
+              (data['validTill'] as Timestamp?)?.toDate() ?? DateTime.now(),
           userId: data['userId'] ?? '',
         );
       }).toList();
@@ -60,9 +65,9 @@ class _OffersPageState extends State<OffersPage> {
       });
     } catch (e) {
       debugPrint('Error fetching offers: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load offers: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load offers: $e')));
       setState(() => isLoading = false);
     }
   }
@@ -78,9 +83,9 @@ class _OffersPageState extends State<OffersPage> {
       });
     } catch (e) {
       debugPrint('Error approving offer: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to approve offer: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to approve offer: $e')));
     }
   }
 
@@ -95,16 +100,491 @@ class _OffersPageState extends State<OffersPage> {
       });
     } catch (e) {
       debugPrint('Error rejecting offer: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to reject offer: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to reject offer: $e')));
     }
+  }
+
+  Future<void> _editOffer(Offer offer) async {
+    final titleController = TextEditingController(text: offer.offerTitle);
+    final descriptionController = TextEditingController(
+      text: offer.description,
+    );
+    final discountValueController = TextEditingController(
+      text: offer.discountValue,
+    );
+    final termsController = TextEditingController(text: offer.terms);
+
+    DateTime validFrom = offer.validFrom;
+    DateTime validTill = offer.validTill;
+    String discountType = offer.discountType;
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: 600,
+                constraints: const BoxConstraints(maxHeight: 700),
+                child: Column(
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4CAF50),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.edit_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Edit Offer',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Form content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Restaurant Name (Read-only)
+                            _buildReadOnlyField(
+                              'Restaurant',
+                              offer.restaurantName,
+                              Icons.restaurant_rounded,
+                            ),
+                            const SizedBox(height: 16),
+                            // Offer Title
+                            _buildTextField(
+                              controller: titleController,
+                              label: 'Offer Title',
+                              icon: Icons.title_rounded,
+                            ),
+                            const SizedBox(height: 16),
+                            // Description
+                            _buildTextField(
+                              controller: descriptionController,
+                              label: 'Description',
+                              icon: Icons.description_rounded,
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 16),
+                            // Discount Type and Value
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Discount Type',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: discountType,
+                                            isExpanded: true,
+                                            items: const [
+                                              DropdownMenuItem(
+                                                value: 'Percentage',
+                                                child: Text('Percentage'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Fixed',
+                                                child: Text('Fixed'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'BOGO',
+                                                child: Text('BOGO'),
+                                              ),
+                                            ],
+                                            onChanged: (value) {
+                                              if (value != null) {
+                                                setDialogState(() {
+                                                  discountType = value;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: discountValueController,
+                                    label: 'Discount Value',
+                                    icon: Icons.money_rounded,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Valid From Date
+                            _buildDateField(
+                              label: 'Valid From',
+                              date: validFrom,
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: validFrom,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    validFrom = picked;
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Valid Till Date
+                            _buildDateField(
+                              label: 'Valid Till',
+                              date: validTill,
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: validTill,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    validTill = picked;
+                                  });
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Terms
+                            _buildTextField(
+                              controller: termsController,
+                              label: 'Terms & Conditions',
+                              icon: Icons.info_rounded,
+                              maxLines: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Footer with buttons
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                side: BorderSide(color: Colors.grey[300]!),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                await _updateOffer(
+                                  offer,
+                                  titleController.text,
+                                  descriptionController.text,
+                                  discountType,
+                                  discountValueController.text,
+                                  termsController.text,
+                                  validFrom,
+                                  validTill,
+                                );
+                                Navigator.pop(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4CAF50),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Dispose controllers
+    titleController.dispose();
+    descriptionController.dispose();
+    discountValueController.dispose();
+    termsController.dispose();
+  }
+
+  Future<void> _updateOffer(
+    Offer offer,
+    String title,
+    String description,
+    String discountType,
+    String discountValue,
+    String terms,
+    DateTime validFrom,
+    DateTime validTill,
+  ) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('offers')
+          .doc(offer.offerId)
+          .update({
+            'offerTitle': title,
+            'description': description,
+            'discountType': discountType,
+            'discountValue': discountValue,
+            'terms': terms,
+            'validFrom': Timestamp.fromDate(validFrom),
+            'validTill': Timestamp.fromDate(validTill),
+          });
+
+      setState(() {
+        offer.offerTitle = title;
+        offer.description = description;
+        offer.discountType = discountType;
+        offer.discountValue = discountValue;
+        offer.terms = terms;
+        offer.validFrom = validFrom;
+        offer.validTill = validTill;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Offer updated successfully!'),
+          backgroundColor: Color(0xFF4CAF50),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error updating offer: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update offer: $e')));
+    }
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 20, color: Colors.black54),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateField({
+    required String label,
+    required DateTime date,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.calendar_today_rounded,
+                  size: 20,
+                  color: Colors.black54,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  DateFormat('MMM d, y').format(date),
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField(String label, String value, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: Colors.black54),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   List<Offer> get filteredOffers {
     final query = _searchController.text.toLowerCase();
     return offers.where((offer) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           offer.offerTitle.toLowerCase().contains(query) ||
           offer.restaurantName.toLowerCase().contains(query) ||
           offer.description.toLowerCase().contains(query);
@@ -199,7 +679,8 @@ class _OffersPageState extends State<OffersPage> {
                             color: Colors.black87,
                           ),
                           decoration: const InputDecoration(
-                            hintText: 'Search offers by title, restaurant, or description...',
+                            hintText:
+                                'Search offers by title, restaurant, or description...',
                             hintStyle: TextStyle(
                               color: Colors.black38,
                               fontSize: 15,
@@ -217,51 +698,55 @@ class _OffersPageState extends State<OffersPage> {
                 Expanded(
                   child: isLoading
                       ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF4CAF50),
-                      strokeWidth: 3,
-                    ),
-                  )
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF4CAF50),
+                            strokeWidth: 3,
+                          ),
+                        )
                       : filteredOffers.isEmpty
                       ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.local_offer_outlined,
-                          size: 64,
-                          color: Colors.black12,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No offers found',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black38,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.local_offer_outlined,
+                                size: 64,
+                                color: Colors.black12,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No offers found',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black38,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  )
+                        )
                       : GridView.builder(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: filteredOffers.length,
-                    itemBuilder: (context, index) {
-                      return OfferCard(
-                        offer: filteredOffers[index],
-                        onApprove: () => _approveOffer(filteredOffers[index]),
-                        onReject: () => _rejectOffer(filteredOffers[index]),
-                        selectedTab: selectedTab,
-                      );
-                    },
-                  ),
+                          padding: const EdgeInsets.only(bottom: 16),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 0.85,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
+                          itemCount: filteredOffers.length,
+                          itemBuilder: (context, index) {
+                            return OfferCard(
+                              offer: filteredOffers[index],
+                              onApprove: () =>
+                                  _approveOffer(filteredOffers[index]),
+                              onReject: () =>
+                                  _rejectOffer(filteredOffers[index]),
+                              onEdit: () => _editOffer(filteredOffers[index]),
+                              selectedTab: selectedTab,
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -312,6 +797,7 @@ class OfferCard extends StatelessWidget {
   final Offer offer;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+  final VoidCallback onEdit;
   final String selectedTab;
 
   const OfferCard({
@@ -319,6 +805,7 @@ class OfferCard extends StatelessWidget {
     required this.offer,
     required this.onApprove,
     required this.onReject,
+    required this.onEdit,
     required this.selectedTab,
   }) : super(key: key);
 
@@ -360,22 +847,25 @@ class OfferCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
             ),
             child: Stack(
               children: [
                 // Decorative pattern
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: OfferPatternPainter(),
-                  ),
+                  child: CustomPaint(painter: OfferPatternPainter()),
                 ),
                 // Status badge
                 Positioned(
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -401,7 +891,10 @@ class OfferCard extends StatelessWidget {
                 // Discount badge
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -592,15 +1085,45 @@ class OfferCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  // Edit button (visible for all statuses)
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: const Text(
+                        'Edit Offer',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4CAF50),
+                        side: const BorderSide(
+                          color: Color(0xFF4CAF50),
+                          width: 1.5,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
                   // Action buttons
                   if (selectedTab == 'Pending') ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: onApprove,
-                            icon: const Icon(Icons.check_circle_rounded, size: 16),
+                            icon: const Icon(
+                              Icons.check_circle_rounded,
+                              size: 16,
+                            ),
                             label: const Text(
                               'Approve',
                               style: TextStyle(
@@ -681,15 +1204,15 @@ class Offer {
   final String offerId;
   final String restaurantId;
   final String restaurantName;
-  final String offerTitle;
-  final String description;
-  final String discountType;
-  final String discountValue;
-  final String terms;
+  String offerTitle;
+  String description;
+  String discountType;
+  String discountValue;
+  String terms;
   String status;
   final DateTime createdAt;
-  final DateTime validFrom;
-  final DateTime validTill;
+  DateTime validFrom;
+  DateTime validTill;
   final String userId;
 
   Offer({
