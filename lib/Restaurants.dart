@@ -84,20 +84,53 @@ class _RestaurantPageState extends State<RestaurantPage> {
   }
 
   Future<void> _verifyEmail(Restaurant restaurant) async {
+    // 1. Show Loading Indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
+
     try {
       await FirebaseFirestore.instance
           .collection('restaurants')
           .doc(restaurant.id)
           .update({'is_approved_email': 'approved'});
 
+      // 2. Close the Loader
+      if (!mounted) return;
+      Navigator.pop(context);
+
       setState(() {
         restaurant.emailApprovalStatus = 'approved';
       });
+
+      // 3. Show Success SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Email for "${restaurant.name}" verified successfully!'),
+          backgroundColor: const Color(0xFF4CAF50),
+        ),
+      );
     } catch (e) {
+      // 4. Close the Loader (if error occurs)
+      if (mounted) Navigator.pop(context);
+
       debugPrint('Error verifying email: $e');
+
+      // 5. Show Error SnackBar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to verify email: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-
   Future<void> _suspendRestaurant(Restaurant restaurant) async {
     // Show confirmation dialog
     final confirm = await showDialog<bool>(
@@ -219,18 +252,56 @@ class _RestaurantPageState extends State<RestaurantPage> {
       builder: (context) => VerificationDialog(
         restaurant: restaurant,
         onApprove: () async {
+          // 1. Show Loading Indicator
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          );
+
           try {
             await FirebaseFirestore.instance
                 .collection('restaurants')
                 .doc(restaurant.id)
                 .update({'is_approved': 'approved', 'license_verified': true});
+
+            // 2. Close the Loader
+            if (!mounted) return;
+            Navigator.pop(context);
+
             setState(() {
               restaurant.status = 'APPROVED';
               restaurant.licenseVerified = true;
             });
+
+            // 3. Close the Verification Dialog
+            if (!mounted) return;
             Navigator.pop(context);
+
+            // 4. Show Success SnackBar
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${restaurant.name} has been approved!'),
+                backgroundColor: const Color(0xFF4CAF50),
+              ),
+            );
           } catch (e) {
+            // 5. Close the Loader only (Keep verification dialog open)
+            if (mounted) Navigator.pop(context);
+
             debugPrint('Error approving: $e');
+
+            // 6. Show Error SnackBar
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to approve: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         },
         onReject: () async {
@@ -250,6 +321,8 @@ class _RestaurantPageState extends State<RestaurantPage> {
       ),
     );
   }
+
+
 
   List<Restaurant> get filteredRestaurants {
     final query = _searchController.text.toLowerCase();
